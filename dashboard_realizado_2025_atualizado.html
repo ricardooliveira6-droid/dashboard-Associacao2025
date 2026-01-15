@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dashboard Financeiro 2025 — Realizado (Despesas x Receitas)</title>
+
+  <!-- Plotly (gráficos interativos) -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <!-- PapaParse (parse de CSV) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- Tabela interativa (Tabulator) -->
+  <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f3f5f7;
+      --panel: #ffffff;
+      --muted: #64748b;
+      --text: #0f172a;
+      --sidebar: #0b2230;
+      --sidebar2: #0f2b3b;
+      --accent: #14b8a6;
+      --shadow: 0 10px 25px rgba(2, 6, 23, 0.10);
+      --radius: 14px;
+      --radius2: 18px;
+      --gap: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background: linear-gradient(180deg, #eef2f6 0%, var(--bg) 40%, var(--bg) 100%);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar2) 100%);
+      color: #e2e8f0;
+      padding: 18px 14px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid rgba(148,163,184,0.15);
+    }
+    .brand {
+      display:flex; align-items:center; gap:12px;
+      padding: 10px 10px 18px 10px;
+    }
+    .logo {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: radial-gradient(circle at 30% 30%, #22c55e 0%, #14b8a6 35%, #0ea5e9 100%);
+      box-shadow: 0 12px 25px rgba(20,184,166,0.25);
+    }
+    .brand h1 {
+      font-size: 14px;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+    .brand p {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: rgba(226,232,240,0.75);
+    }
+    .nav {
+      display:flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 6px;
+    }
+    .nav button {
+      all: unset;
+      display:flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      color: rgba(226,232,240,0.85);
+      border: 1px solid rgba(148,163,184,0.12);
+      background: rgba(15, 42, 59, 0.40);
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+      user-select: none;
+    }
+    .nav button:hover { background: rgba(15, 42, 59, 0.65); border-color: rgba(20,184,166,0.35); }
+    .nav button.active {
+      background: rgba(20,184,166,0.18);
+      border-color: rgba(20,184,166,0.55);
+      color: #eafffb;
+    }
+    .nav .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(148,163,184,0.7);
+    }
+    .nav button.active .dot { background: var(--accent); }
+    .sidebar .hint {
+      margin-top: 18px;
+      padding: 12px;
+      border: 1px dashed rgba(148,163,184,0.25);
+      border-radius: 14px;
+      font-size: 12px;
+      color: rgba(226,232,240,0.78);
+      line-height: 1.35;
+    }
+    .main {
+      padding: 18px;
+      overflow: auto;
+    }
+    .topbar {
+      display:flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .topbar .title {
+      display:flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .topbar h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+    .topbar small {
+      color: var(--muted);
+    }
+    .search {
+      flex: 1;
+      max-width: 520px;
+      display:flex;
+      gap: 8px;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid rgba(148,163,184,0.35);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+    }
+    .search input {
+      border: none;
+      outline: none;
+      width: 100%;
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--gap);
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(148,163,184,0.35);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: rgba(15, 23, 42, 0.95);
+      letter-spacing: .2px;
+    }
+    .kpis {
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+    .kpi {
+      padding: 14px;
+      border-radius: var(--radius2);
+      background: var(--panel);
+      border: 1px solid rgba(148,163,184,0.35);
+      box-shadow: var(--shadow);
+    }
+    .kpi .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .kpi .value {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .kpi .sub {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .filters {
+      display:grid;
+      grid-template-columns: 1.1fr 1.1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: var(--gap);
+    }
+    .control {
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .control select, .control input {
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,0.45);
+      background: #fff;
+      outline: none;
+      font-size: 13px;
+    }
+    .row2 {
+      display:grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: var(--gap);
+      margin-top: var(--gap);
+    }
+    .row3 {
+      display:grid;
+      grid-template-columns: 1.1fr 1.1fr 1fr;
+      gap: var(--gap);
+      margin-top: var(--gap);
+    }
+    .btns {
+      display:flex; gap: 10px; flex-wrap: wrap; align-items:center;
+      margin-top: 8px;
+    }
+    .btn {
+      border: 1px solid rgba(148,163,184,0.45);
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      box-shadow: 0 6px 14px rgba(2,6,23,0.08);
+      user-select: none;
+    }
+    .btn.primary {
+      border-color: rgba(20,184,166,0.55);
+      background: rgba(20,184,166,0.10);
+    }
+    .tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(2,6,23,0.65);
+      background: rgba(148,163,184,0.12);
+      border: 1px solid rgba(148,163,184,0.22);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+    .note {
+      font-size: 12px;
+      color: rgba(2,6,23,0.65);
+      line-height: 1.35;
+    }
+    #table {
+      margin-top: 10px;
+    }
+    .footer {
+      margin-top: 16px;
+      color: rgba(100,116,139,0.9);
+      font-size: 12px;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .grid, .row2, .row3 { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .filters { grid-template-columns: 1fr 1fr; }
+    }
+  
+    .alert-item{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.35);
+      background: #fff;
+      box-shadow: 0 8px 18px rgba(2,6,23,0.08);
+    }
+    .alert-badge{
+      min-width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-top: 6px;
+      background: rgba(100,116,139,0.65);
+    }
+    .alert-item.high .alert-badge{ background: rgba(239,68,68,0.9); }
+    .alert-item.med .alert-badge{ background: rgba(245,158,11,0.9); }
+    .alert-item.low .alert-badge{ background: rgba(20,184,166,0.9); }
+    .alert-title{
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .alert-desc{
+      font-size: 12px;
+      color: rgba(2,6,23,0.65);
+      margin: 3px 0 0 0;
+      line-height: 1.35;
+    }
+
+</style>
+</head>
+
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>ASSOC. TERRAS ALPHAVILLE SE 2</h1>
+        <p>Dashboard • Demonstrativo do Realizado 2025</p>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="active" data-view="visao"><span class="dot"></span>Visão Geral</button>
+      <button data-view="analise"><span class="dot"></span>Análise por Conta</button>
+      <button data-view="tabela"><span class="dot"></span>Tabela e Exportação</button>
+    </div>
+
+    <div class="hint">
+      <b>Dica:</b> use os filtros (Tipo, Conta, intervalo de meses e busca) para refinar o painel.
+      <div style="height:8px"></div>
+      <div class="note">
+        Arquivo carregado localmente (CSV embutido) — funciona ao abrir no navegador sem servidor.
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="title">
+        <h2>Dashboard Financeiro Interativo (2025)</h2>
+        <small>Receitas x Despesas • linha do tempo • rankings • detalhamento por conta</small>
+      </div>
+      <div class="search" title="Busca por descrição/código">
+        🔎 <input id="globalSearch" placeholder="Pesquisar (ex.: Água/Esgoto, Salários, Segurança, etc.)"/>
+      </div>
+    </div>
+
+    <section class="kpis">
+      <div class="kpi">
+        <div class="label">Receitas (período filtrado)</div>
+        <div class="value" id="kpiReceitas">—</div>
+        <div class="sub" id="kpiReceitasSub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Despesas (período filtrado)</div>
+        <div class="value" id="kpiDespesas">—</div>
+        <div class="sub" id="kpiDespesasSub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Resultado (Receitas - Despesas)</div>
+        <div class="value" id="kpiResultado">—</div>
+        <div class="sub" id="kpiResultadoSub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Top conta (impacto no período)</div>
+        <div class="value" id="kpiTopConta">—</div>
+        <div class="sub" id="kpiTopContaSub">—</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>Filtros</h3>
+      <div class="filters">
+        <div class="control">
+          <label for="tipoSel">Tipo</label>
+          <select id="tipoSel">
+            <option value="Todos">Todos</option>
+            <option value="Despesa">Despesa</option>
+            <option value="Receita">Receita</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="contaSel">Conta/Descrição</label>
+          <select id="contaSel">
+            <option value="Todas">Todas</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="mesIni">Mês inicial</label>
+          <select id="mesIni"></select>
+        </div>
+
+        <div class="control">
+          <label for="mesFim">Mês final</label>
+          <select id="mesFim"></select>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn primary" id="btnAplicar">Aplicar filtros</button>
+        <button class="btn" id="btnLimpar">Limpar</button>
+        <span class="tag" id="tagResumo">—</span>
+      </div>
+    </section>
+
+    <section id="view-visao" class="view">
+      <div class="grid" style="margin-top: var(--gap);">
+        <div class="panel">
+          <h3>Linha do tempo — Receitas x Despesas (mensal)</h3>
+          <div id="chartTimeline" style="height: 320px;"></div>
+        </div>
+        <div class="panel">
+          <h3>Composição do período (pizza)</h3>
+          <div id="chartDonut" style="height: 320px;"></div>
+        </div>
+      </div>
+
+      <div class="row3">
+        <div class="panel">
+          <h3>Top 10 contas (valor acumulado no período)</h3>
+          <div id="chartTop10" style="height: 320px;"></div>
+        </div>
+        <div class="panel">
+          <h3>Variação mensal (heatmap)</h3>
+          <div id="chartHeat" style="height: 320px;"></div>
+        </div>
+        <div class="panel">
+          <h3>Resultado por mês (barras)</h3>
+          <div id="chartResultado" style="height: 320px;"></div>
+        </div>
+      
+      <div class="panel" style="margin-top: var(--gap);">
+        <h3>Painel de alertas (anomalias)</h3>
+        <div class="note">
+          Alertas automáticos considerando o período filtrado (ex.: mês acima da média / variação anormal).
+        </div>
+        <div id="alertsList" style="margin-top: 10px; display:grid; grid-template-columns: 1fr; gap: 10px;"></div>
+      </div>
+</div>
+    </section>
+
+    <section id="view-analise" class="view hidden">
+      <div class="row2">
+        <div class="panel">
+          <h3>Detalhe por conta — série mensal</h3>
+          <div id="chartContaSerie" style="height: 360px;"></div>
+          <div class="footer">
+            Selecione uma conta no filtro “Conta/Descrição” para ver a série mensal. Para comparação, use a busca global.
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Distribuição por tipo no período</h3>
+          <div id="chartStack" style="height: 360px;"></div>
+          <div class="footer">
+            O gráfico empilhado mostra quanto do total do período vem de Receitas e Despesas.
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top: var(--gap);">
+        <h3>Ranking completo (ordenável)</h3>
+        <div id="chartRankFull" style="height: 380px;"></div>
+      </div>
+    </section>
+
+    <section id="view-tabela" class="view hidden">
+      <div class="panel" style="margin-top: var(--gap);">
+        <h3>Tabela detalhada (interativa)</h3>
+        <div class="note">
+          Você pode ordenar, filtrar por colunas e exportar os dados filtrados para CSV.
+        </div>
+        <div class="btns">
+          <button class="btn primary" id="btnExport">Exportar CSV (filtro atual)</button>
+        </div>
+        <div id="table"></div>
+        <div class="footer" id="footerInfo"></div>
+      </div>
+    </section>
+
+    <div class="panel" style="margin-top: var(--gap);">
+      <h3>Tecnologias usadas</h3>
+      <div class="note">
+        <b>Linguagens:</b> HTML, CSS e JavaScript (front-end).<br/>
+        <b>Bibliotecas:</b> Plotly.js (gráficos interativos), PapaParse (leitura do CSV), Tabulator (tabela interativa e exportação).<br/>
+        <b>Dados:</b> CSV “contas_despesas_receitas_2025.csv” (embutido neste arquivo para funcionar offline).
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ========= Dados (CSV embutido) =========
+  const CSV_TEXT = `Tipo;Codigo;Descricao;JAN/2025;FEV/2025;MAR/2025;ABR/2025;MAI/2025;JUN/2025;JUL/2025;AGO/2025;SET/2025;OUT/2025;NOV/2025;DEZ/2025;Media;Total
+Despesa;274;INVESTIMENTO;0,00;690,00;0,00;17.200,10;16.302,31;13.410,94;4.500,00;0,00;0,00;0,00;0,00;0,00;4.341,95;52.103,35
+Despesa;13;PESSOAL;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;5.796,00;0,00;0,00;0,00;483,00;5.796,00
+Despesa;14;Salários;18.650,67;18.036,07;17.611,50;18.026,16;18.165,57;18.093,23;21.184,37;17.453,53;18.995,76;19.277,56;15.798,50;19.082,13;18.364,59;220.375,05
+Despesa;15;Adiantamento Salarial;12.023,00;15.057,76;14.484,76;14.086,00;15.395,56;15.391,34;14.181,16;14.698,61;15.531,85;16.211,88;13.159,89;15.187,73;14.617,46;175.409,54
+Despesa;16;Férias;4.367,55;2.829,83;4.035,18;1.938,29;1.579,70;0,00;1.654,07;1.955,74;945,47;2.866,04;11.254,06;0,00;2.785,49;33.425,93
+Despesa;13413;º Salario;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;17.653,11;11.684,93;2.444,84;29.338,04
+Despesa;17;Rescisões;0,00;632,50;2.093,05;0,00;0,00;4.504,11;3.207,74;3.199,14;0,00;5.343,58;17.850,87;845,17;3.139,68;37.676,16
+Despesa;93;Ticket Alimentação;5.490,45;5.632,33;5.513,28;6.497,39;6.245,28;5.561,42;6.494,24;7.296,42;6.390,42;4.764,33;0,00;12.278,69;6.013,69;72.164,25
+Despesa;18;Vale Transporte;544,50;184,50;364,50;382,50;724,50;445,50;1.039,50;490,50;607,50;526,50;0,00;1.035,00;528,75;6.345,00
+Despesa;237;Auxilio Combustivel;1.091,33;1.132,84;937,56;1.188,54;835,18;980,02;816,62;983,86;1.134,46;973,29;0,00;2.120,75;1.016,20;12.194,45
+Despesa;247;Jovem Aprendiz;536,72;536,72;536,72;536,72;536,72;536,72;536,72;536,72;536,72;536,72;0,00;1.108,73;539,66;6.475,93
+Despesa;20;I.N.S.S.;35.119,33;30.972,50;34.222,56;31.900,80;33.407,31;36.191,41;32.295,19;35.090,41;35.015,67;32.039,60;34.660,24;0,00;30.909,59;370.915,02
+Despesa;21;F.G.T.S.;4.806,14;3.493,08;3.920,10;3.214,72;3.290,21;9.596,43;1.362,56;5.551,39;3.360,20;4.138,57;11.050,99;4.511,99;4.858,03;58.296,38
+Despesa;243;IPTU;0,00;0,00;32.057,15;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;2.671,43;32.057,15
+Despesa;248;AVCB;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;153,98;0,00;0,00;12,83;153,98
+Despesa;27;Combustível Roçadeira;1.989,33;1.931,22;1.896,77;1.999,98;1.948,54;1.512,66;1.512,12;1.833,78;1.826,70;1.819,37;0,00;2.697,80;1.747,36;20.968,27
+Despesa;95;Materiais Manut Paisagismo;750,00;3.609,76;2.066,15;4.398,70;5.415,08;1.405,25;5.150,19;7.668,93;1.738,65;4.732,51;1.350,00;2.019,80;3.358,75;40.305,02
+Despesa;28;Insumos;0,00;2.500,00;2.070,00;0,00;0,00;0,00;0,00;1.108,00;0,00;0,00;426,00;1.862,00;663,83;7.966,00
+Despesa;29;Uniformes/EPI´S;901,97;0,00;358,13;0,00;1.350,00;1.673,46;360,00;642,79;537,06;0,00;376,09;2.700,00;741,63;8.899,50
+Despesa;30;Carro Pipa;0,00;0,00;0,00;0,00;2.000,00;6.300,00;0,00;0,00;0,00;450,00;2.250,00;2.700,00;1.141,67;13.700,00
+Despesa;97;Contrato - Pinheiro Segurança;44.818,62;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.731,83;47.489,06;569.868,75
+Despesa;98;Combustível Moto Ronda;350,00;410,00;492,00;600,00;450,00;350,00;385,00;500,00;350,00;350,00;0,00;870,00;425,58;5.107,00
+Despesa;99;Manutenção Moto Ronda;0,00;321,00;0,00;193,00;801,00;80,00;105,00;155,00;400,00;125,00;826,00;190,00;266,33;3.196,00
+Despesa;122;RETD. FTE;0,00;0,00;0,00;0,00;1.905,66;0,00;0,00;0,00;0,00;0,00;0,00;0,00;158,81;1.905,66
+Despesa;242;Contrato Pinheiro Portaria;5.375,78;5.375,78;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.778,96;5.711,76;68.541,16
+Despesa;263;Contrato Pinheiro;6.382,31;6.382,31;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.860,99;6.781,21;81.374,52
+Despesa;101;Limpeza/Produto;1.532,41;1.249,86;1.231,90;933,30;2.034,22;1.643,14;1.683,71;1.255,43;0,00;2.805,78;1.420,74;1.276,84;1.422,28;17.067,33
+Despesa;102;Piscina/Produto;1.736,00;3.119,00;1.646,00;2.045,00;1.581,50;0,00;121,60;1.562,00;1.683,88;0,00;1.560,00;0,00;1.254,58;15.054,98
+Despesa;103;Manutenção;9.908,75;25.296,88;18.233,66;12.731,47;31.048,73;22.555,76;17.170,31;21.310,64;10.818,99;46.460,99;7.617,79;34.269,28;21.451,94;257.423,25
+Despesa;113;ISS retido;4.014,37;4.325,87;4.204,82;9.921,34;3.626,86;5.115,22;4.353,30;3.730,04;0,00;10.282,79;4.386,10;4.916,51;4.906,44;58.877,22
+Despesa;206;Piscina Manutenção;1.094,88;1.328,87;1.328,97;1.328,91;1.328,86;221,47;1.327,01;1.328,74;1.328,73;1.328,67;1.328,45;1.326,60;1.216,68;14.600,16
+Despesa;118;Honorarios Advocaticios;2.604,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.036,00;3.000,00;36.000,00
+Despesa;119;Honorarios Contabeis;1.925,00;1.695,00;1.695,00;1.730,00;6.531,00;1.035,60;1.695,00;6.445,00;1.695,00;2.118,75;2.153,75;2.118,75;2.569,82;30.837,85
+Despesa;197;Honorários Extrajudiciais;2.351,33;248,50;3.333,98;4.201,43;4.695,22;4.543,10;5.600,56;6.822,06;0,00;3.264,77;10.444,57;7.615,50;4.426,75;53.121,02
+Despesa;232;Serviços Técnico Manut Cerca;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;1.000,00;12.000,00
+Despesa;238;Serviços de TI;1.185,95;1.592,97;918,60;918,60;918,60;918,60;918,60;918,60;921,09;918,60;918,60;1.226,18;1.022,92;12.274,99
+Despesa;253;Serviços de Engenharia Eletric;2.000,00;2.000,00;2.000,00;2.000,00;4.200,00;2.000,00;2.000,00;2.000,00;0,00;1.950,00;1.950,00;1.990,75;2.007,56;24.090,75
+Despesa;254;Serviços de Dedetização;1.720,00;1.720,00;1.720,00;2.620,00;1.720,00;1.720,00;1.720,00;1.720,00;1.720,00;1.720,00;1.720,00;1.892,41;1.809,37;21.712,41
+Despesa;256;Atividades Esportivas;4.962,20;5.009,60;5.949,60;5.908,40;5.999,60;3.228,40;3.559,60;6.440,80;6.099,60;6.595,80;7.125,00;5.950,00;5.569,05;66.828,60
+Despesa;257;SENAI;42,00;42,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;7,00;84,00
+Despesa;264;Segurança do Trabalho;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;1.650,00;19.800,00
+Despesa;267;Serviço Guarda Vida;1.815,60;1.361,70;1.210,40;1.815,60;1.513,00;453,90;605,20;1.361,70;1.513,00;1.210,40;1.210,40;1.788,30;1.321,60;15.859,20
+Despesa;270;Serviços de Limpeza;8.493,92;8.483,97;8.469,06;8.455,14;11.017,99;9.076,94;9.076,94;9.065,17;9.052,33;9.046,98;9.042,70;9.279,48;9.046,72;108.560,62
+Despesa;78;Luz/Força;9.217,74;7.505,96;7.546,72;5.793,19;5.530,70;6.378,83;9.530,61;8.195,31;8.951,20;8.270,72;8.418,40;9.596,02;7.911,28;94.935,40
+Despesa;94;Água/Esgoto;74.546,38;56.095,20;50.649,98;50.649,98;50.649,98;50.649,98;50.649,98;50.649,98;54.619,49;55.911,95;60.332,72;70.430,07;56.319,64;675.835,69
+Despesa;79;Internet;164,90;164,90;164,90;164,90;164,90;164,90;164,90;164,90;168,40;164,90;0,00;333,41;165,49;1.985,91
+Despesa;104;Telefonia Fixa;169,70;152,04;161,23;172,78;175,98;149,55;152,85;163,62;163,36;160,64;172,49;158,60;162,74;1.952,84
+Despesa;105;Telefonia Móvel;291,59;291,59;291,59;291,59;291,59;291,59;291,59;292,72;291,59;291,59;0,00;590,32;292,28;3.507,35
+Despesa;180;Iluminação Publica;2.962,13;2.962,13;2.962,13;3.000,03;3.161,88;3.253,97;3.313,93;3.432,89;3.476,31;3.386,20;0,00;6.699,68;3.217,61;38.611,28
+Despesa;262;Plano Sky;237,10;239,38;243,94;239,04;241,38;241,38;241,38;241,38;241,38;199,89;241,38;241,38;237,42;2.849,01
+Despesa;146;Despesas com eventos;22.521,00;1.986,09;0,00;0,00;2.060,00;7.563,25;1.834,50;0,00;2.120,00;3.380,00;3.800,00;16.113,00;5.114,82;61.377,84
+Despesa;107;Material de Expediente;0,00;646,70;0,00;221,50;290,00;377,25;101,40;365,00;350,99;289,00;292,70;467,90;283,54;3.402,44
+Despesa;124;Sistema Operacional - GOSOFT;1.004,09;1.004,09;1.052,59;1.052,59;1.052,59;1.075,39;1.052,59;1.052,59;1.052,59;1.052,59;1.052,59;1.074,69;1.048,25;12.578,98
+Despesa;125;Manutenção do Site- Myvillage;2.104,01;2.196,39;2.196,39;2.196,39;2.196,39;2.196,39;2.196,39;2.196,39;2.245,42;2.196,33;2.196,39;2.241,04;2.196,49;26.357,92
+Despesa;131;Despesa Recursos Humanos;1.529,15;758,67;384,95;672,95;1.214,74;553,73;653,13;920,66;770,86;602,45;582,00;2.049,88;891,10;10.693,17
+Despesa;174;Seguros;2.251,59;3.691,34;0,00;0,00;0,00;0,00;0,00;0,00;775,71;0,00;0,00;0,00;559,89;6.718,64
+Despesa;179;Reuniões/AGO/Conselho;0,00;429,88;0,00;0,00;351,68;175,84;0,00;87,92;0,00;87,92;263,76;0,00;116,42;1.397,00
+Despesa;188;Material Esportivo;0,00;0,00;0,00;0,00;0,00;0,00;966,20;874,65;860,00;0,00;0,00;0,00;225,07;2.700,85
+Despesa;190;Licenciamento/IPVA;0,00;0,00;1.140,79;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;95,07;1.140,79
+Despesa;191;Licenças /Alvará;0,00;174,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;14,50;174,00
+Despesa;192;Combustivel Moto Associação;50,00;100,00;150,00;250,00;150,00;0,00;150,00;0,00;100,00;50,00;0,00;450,00;120,83;1.450,00
+Despesa;260;Custas Processuais;0,00;0,00;0,00;0,00;0,00;0,00;1.327,95;0,00;0,00;0,00;0,00;0,00;110,66;1.327,95
+Despesa;36;Tarifa Cobrança Boleto;1.574,09;1.739,58;1.760,80;1.689,82;1.841,81;1.770,40;1.670,61;1.693,82;1.628,72;1.704,69;1.682,75;2.070,25;1.735,61;20.827,34
+Despesa;38;Cesta Tarifa PJ;125,00;125,00;125,00;125,00;125,00;125,00;125,00;125,00;125,00;125,00;259,98;125,00;136,25;1.634,98
+Despesa;201;Deb Tarifa-Folha de;28,80;14,40;80,60;12,60;26,10;27,00;47,70;13,50;37,80;26,10;12,60;22,50;29,14;349,70
+Despesa;126;Maquinário;11.254,78;684,50;2.027,47;1.477,47;1.342,97;729,95;2.206,66;0,00;4.029,98;15.510,90;1.533,23;0,00;3.399,83;40.797,91
+Despesa;;TOTAL DAS DESPESAS;321.266,16;291.582,09;311.598,26;290.839,70;323.493,67;310.326,80;287.351,46;299.653,11;276.065,66;341.481,11;324.432,62;333.266,84;309.279,82;3.711.357,48
+Receita;;COTAS REC. DE COBRANÇA;54.436,44;90.628,79;71.812,00;80.541,86;91.452,88;48.786,24;76.470,22;57.734,98;57.277,50;119.990,85;69.424,24;54.293,10;72.737,43;872.849,10
+Receita;;TX MANUTENCAO;117.276,26;124.032,67;130.135,28;121.617,15;128.003,66;121.804,83;128.164,06;125.015,53;126.542,39;130.301,81;127.793,73;129.726,93;125.867,86;1.510.414,30
+Receita;;MAN A LAZER;76.980,75;81.476,10;85.281,00;79.910,25;84.055,71;80.073,00;84.141,75;82.188,75;83.165,25;85.606,50;83.979,00;84.792,75;82.637,57;991.650,81
+Receita;;HONORARIOS ADV COBRANÇA;1.686,16;3.833,07;3.945,48;4.542,20;6.719,99;2.069,92;4.800,53;4.160,39;5.041,87;12.636,18;6.293,36;5.174,35;5.075,29;60.903,50
+Receita;;TAXA CONSUMO AGUA;56.308,84;79.861,89;69.642,91;44.343,25;61.605,87;51.630,15;48.686,55;44.942,43;48.222,15;47.956,94;56.180,66;70.009,84;56.615,96;679.391,48
+Receita;;TAXA APROVACAO DE PROJETO;204,21;600,00;0,00;100,00;133,23;200,00;469,24;335,48;557,81;328,80;329,60;100,00;279,86;3.358,37
+Receita;;CAMPO DE FUTEBOL;0,00;0,00;0,00;0,00;220,00;0,00;0,00;110,00;0,00;0,00;0,00;110,00;36,67;440,00
+Receita;;ALUGUEL SALÃO DE FESTAS;2.640,00;1.650,00;2.310,00;1.980,00;2.640,00;2.640,00;1.980,00;1.980,00;1.650,00;1.980,00;1.980,00;3.630,00;2.255,00;27.060,00
+Receita;;LIMPEZA DO LOTE;0,00;0,00;10.664,37;0,00;0,00;0,00;10.187,44;9.683,86;0,00;0,00;9.761,78;0,00;3.358,12;40.297,45
+Receita;;TAXA TAG;70,00;90,00;30,00;60,00;70,00;20,00;60,00;50,00;40,00;40,00;10,00;0,00;45,00;540,00
+Receita;;MULTA POR INFRAÇÃO;0,00;0,00;1.721,08;0,00;0,00;0,00;1.458,10;0,00;0,00;0,00;0,00;0,00;264,93;3.179,18
+Receita;;ESTORNO TARIFAS;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;134,98;0,00;11,25;134,98
+Receita;;ESTORNO DE PAGAMENTO;0,00;302,68;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;0,00;25,22;302,68
+Receita;;DESCONTOS;-29.313,92;-31.628,02;-32.893,82;-31.183,60;-33.294,35;-31.870,45;-33.156,83;-32.204,82;-32.826,76;-33.550,08;-33.045,37;-34.523,97;-32.457,67;-389.491,99
+Receita;;ATUALIZAÇÃO MONETÁRIA;0,12;0,00;161,21;50,16;1.022,79;206,38;1.772,88;902,01;76,49;2.162,39;652,15;677,03;640,30;7.683,61
+Receita;;JUROS;5.943,92;9.715,60;13.867,79;13.067,79;18.684,87;9.911,27;19.135,64;12.688,09;13.042,80;40.797,25;14.039,83;16.427,25;15.610,18;187.322,10
+Receita;;MULTAS REC. DE COBRANÇA;6.127,04;4.530,02;27.246,16;7.088,20;3.380,85;24.425,26;8.261,41;8.426,85;10.668,11;23.681,11;12.116,49;7.865,59;11.984,76;143.817,09
+Receita;;ANTECIPAÇÕES;21.009,25;10.344,73;21.537,97;12.784,58;19.904,56;13.726,87;19.270,99;17.084,94;12.062,56;21.211,89;18.203,61;28.450,90;17.966,07;215.592,85
+Receita;;TOTAL DAS RECEITAS;313.369,07;375.437,53;405.461,43;334.901,84;384.600,06;323.623,47;371.701,98;333.098,49;325.520,17;453.143,64;367.854,06;366.733,77;362.953,80;4.355.445,51
+`;
+
+  const MONTHS = ["JAN/2025","FEV/2025","MAR/2025","ABR/2025","MAI/2025","JUN/2025","JUL/2025","AGO/2025","SET/2025","OUT/2025","NOV/2025","DEZ/2025"];
+
+  function parseBR(v) {
+    if (v === null || v === undefined) return 0;
+    const s = String(v).trim();
+    if (!s) return 0;
+    const cleaned = s.replace(/\./g, "").replace(",", ".");
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function fmtBRL(n) {
+    try {
+      return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    } catch (e) {
+      return "R$ " + (Math.round(n*100)/100).toString().replace(".", ",");
+    }
+  }
+
+  function clampMonthRange(i0, i1) {
+    let a = Math.min(i0, i1);
+    let b = Math.max(i0, i1);
+    return [a,b];
+  }
+
+  const parsed = Papa.parse(CSV_TEXT, {
+    header: true,
+    skipEmptyLines: true,
+    delimiter: ";"
+  });
+
+  let rawRows = parsed.data.map(r => {
+    const row = {};
+    Object.keys(r).forEach(k => row[k.trim()] = r[k]);
+    return row;
+  });
+
+  rawRows = rawRows.filter(r => (r["Descricao"] || "").trim().length > 0);
+  // Remove linhas de totalização para não distorcer gráficos/alertas
+  rawRows = rawRows.filter(r => {
+    const d = (r["Descricao"] || "").trim().toUpperCase();
+    return d !== "TOTAL DAS DESPESAS" && d !== "TOTAL DAS RECEITAS";
+  });
+
+
+  const state = {
+    tipo: "Todos",
+    conta: "Todas",
+    mesIni: 0,
+    mesFim: 11,
+    search: ""
+  };
+
+  const tipoSel = document.getElementById("tipoSel");
+  const contaSel = document.getElementById("contaSel");
+  const mesIni = document.getElementById("mesIni");
+  const mesFim = document.getElementById("mesFim");
+  const globalSearch = document.getElementById("globalSearch");
+
+  function fillMonthSelects() {
+    mesIni.innerHTML = "";
+    mesFim.innerHTML = "";
+    MONTHS.forEach((m, idx) => {
+      const o1 = document.createElement("option");
+      o1.value = String(idx);
+      o1.textContent = m;
+      mesIni.appendChild(o1);
+
+      const o2 = document.createElement("option");
+      o2.value = String(idx);
+      o2.textContent = m;
+      mesFim.appendChild(o2);
+    });
+    mesIni.value = "0";
+    mesFim.value = "11";
+  }
+
+  function fillContaOptions() {
+    const s = new Set();
+    rawRows.forEach(r => s.add((r["Descricao"] || "").trim()));
+    const list = Array.from(s).sort((a,b) => a.localeCompare(b, "pt-BR"));
+    contaSel.innerHTML = '<option value="Todas">Todas</option>' +
+      list.map(x => `<option value="${x.replaceAll('"','&quot;')}">${x}</option>`).join("");
+  }
+
+  fillMonthSelects();
+  fillContaOptions();
+
+  function passesFilters(r) {
+    const tipo = (r["Tipo"] || "").trim();
+    const desc = (r["Descricao"] || "").trim();
+    const cod = (r["Codigo"] || "").toString().trim();
+
+    if (state.tipo !== "Todos" && tipo !== state.tipo) return false;
+    if (state.conta !== "Todas" && desc !== state.conta) return false;
+
+    if (state.search) {
+      const hay = (cod + " " + desc + " " + tipo).toLowerCase();
+      if (!hay.includes(state.search.toLowerCase())) return false;
+    }
+    return true;
+  }
+
+  function monthRange() {
+    const [a,b] = clampMonthRange(state.mesIni, state.mesFim);
+    return {a,b, months: MONTHS.slice(a, b+1)};
+  }
+
+  function valueInRange(r, months) {
+    let sum = 0;
+    months.forEach(m => { sum += parseBR(r[m]); });
+    return sum;
+  }
+
+  function aggregateByMonth(rows, months) {
+    const rec = new Array(months.length).fill(0);
+    const desp = new Array(months.length).fill(0);
+
+    rows.forEach(r => {
+      const tipo = (r["Tipo"] || "").trim();
+      months.forEach((m, i) => {
+        const v = parseBR(r[m]);
+        if (tipo === "Receita") rec[i] += v;
+        if (tipo === "Despesa") desp[i] += v;
+      });
+    });
+
+    const res = rec.map((x,i) => x - desp[i]);
+    return {rec, desp, res};
+  }
+
+  function aggregateByConta(rows, months) {
+    const map = new Map();
+    rows.forEach(r => {
+      const desc = (r["Descricao"] || "").trim();
+      const sum = valueInRange(r, months);
+      map.set(desc, (map.get(desc) || 0) + sum);
+    });
+    const arr = Array.from(map.entries()).map(([desc, total]) => ({desc, total}));
+    arr.sort((a,b) => Math.abs(b.total) - Math.abs(a.total));
+    return arr;
+  }
+
+  function buildHeatmap(rows, months) {
+    const m = aggregateByMonth(rows, months);
+    return {
+      z: [m.rec, m.desp],
+      y: ["Receitas", "Despesas"],
+      x: months
+    };
+  }
+
+  
+  function mean(arr){
+    if (!arr.length) return 0;
+    return arr.reduce((a,b)=>a+b,0)/arr.length;
+  }
+  function stdev(arr){
+    if (arr.length < 2) return 0;
+    const m = mean(arr);
+    const v = arr.reduce((acc,x)=>acc + (x-m)*(x-m), 0) / (arr.length-1);
+    return Math.sqrt(v);
+  }
+
+  function buildAlerts(totals, months){
+    const alerts = [];
+    const rec = totals.rec, desp = totals.desp, res = totals.res;
+
+    const mRec = mean(rec), sRec = stdev(rec);
+    const mDesp = mean(desp), sDesp = stdev(desp);
+    const mRes = mean(res), sRes = stdev(res);
+
+    // limiares: z-score (std) e variação percentual (fallback)
+    const zHigh = 1.5;
+    const pctHigh = 0.25; // 25%
+
+    months.forEach((mo, i) => {
+      const r = rec[i], d = desp[i], rr = res[i];
+
+      const zDesp = sDesp ? (d - mDesp)/sDesp : 0;
+      const zRec = sRec ? (r - mRec)/sRec : 0;
+      const zRes = sRes ? (rr - mRes)/sRes : 0;
+
+      // Despesa acima da média
+      if ((sDesp && zDesp >= zHigh) || (!sDesp && mDesp && (d > mDesp*(1+pctHigh)))) {
+        alerts.push({
+          level: "high",
+          title: `${mo}: Despesas acima da média`,
+          desc: `Despesas do mês: ${fmtBRL(d)} • média do período: ${fmtBRL(mDesp)}`
+        });
+      }
+
+      // Receita abaixo da média
+      if ((sRec && zRec <= -zHigh) || (!sRec && mRec && (r < mRec*(1-pctHigh)))) {
+        alerts.push({
+          level: "med",
+          title: `${mo}: Receitas abaixo da média`,
+          desc: `Receitas do mês: ${fmtBRL(r)} • média do período: ${fmtBRL(mRec)}`
+        });
+      }
+
+      // Resultado muito fora do padrão (positivo ou negativo)
+      if ((sRes && Math.abs(zRes) >= 1.75) || (!sRes && Math.abs(rr) > Math.abs(mRes)*(1+pctHigh) && months.length>=3)) {
+        alerts.push({
+          level: Math.sign(rr) < 0 ? "high" : "low",
+          title: `${mo}: Resultado fora do padrão`,
+          desc: `Resultado do mês: ${fmtBRL(rr)} • média do período: ${fmtBRL(mRes)}`
+        });
+      }
+    });
+
+    // Se não houver alertas, cria um informativo
+    if (!alerts.length) {
+      alerts.push({
+        level: "low",
+        title: "Sem alertas relevantes no período",
+        desc: "Nenhum mês se destacou significativamente acima/abaixo da média considerando os critérios atuais."
+      });
+    }
+
+    // Limita para não poluir
+    return alerts.slice(0, 12);
+  }
+
+  function renderAlerts(alerts){
+    const el = document.getElementById("alertsList");
+    if (!el) return;
+    el.innerHTML = alerts.map(a => `
+      <div class="alert-item ${a.level}">
+        <div class="alert-badge"></div>
+        <div>
+          <div class="alert-title">${a.title}</div>
+          <div class="alert-desc">${a.desc}</div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+let table;
+
+  function renderAll() {
+    const range = monthRange();
+    const rows = rawRows.filter(passesFilters);
+
+    const totals = aggregateByMonth(rows, range.months);
+    const totalRec = totals.rec.reduce((a,b)=>a+b,0);
+    const totalDesp = totals.desp.reduce((a,b)=>a+b,0);
+    const totalRes = totalRec - totalDesp;
+
+    document.getElementById("kpiReceitas").textContent = fmtBRL(totalRec);
+    document.getElementById("kpiDespesas").textContent = fmtBRL(totalDesp);
+    document.getElementById("kpiResultado").textContent = fmtBRL(totalRes);
+
+    const nMonths = range.months.length;
+    document.getElementById("kpiReceitasSub").textContent = `Média mensal: ${fmtBRL(totalRec / Math.max(1,nMonths))}`;
+    document.getElementById("kpiDespesasSub").textContent = `Média mensal: ${fmtBRL(totalDesp / Math.max(1,nMonths))}`;
+    document.getElementById("kpiResultadoSub").textContent = `Período: ${range.months[0]} → ${range.months[range.months.length-1]}`;
+
+    const byConta = aggregateByConta(rows, range.months);
+    const top = byConta[0] || {desc:"—", total:0};
+    document.getElementById("kpiTopConta").textContent = top.desc;
+    document.getElementById("kpiTopContaSub").textContent = `Impacto: ${fmtBRL(top.total)}`;
+
+    document.getElementById("tagResumo").textContent =
+      `${rows.length} linhas • ${state.tipo} • ${state.conta === "Todas" ? "todas as contas" : state.conta} • ${range.months[0]}–${range.months[range.months.length-1]}`;
+    // Painel de alertas (anomalias) baseado nos totais mensais do período
+    const alerts = buildAlerts(totals, range.months);
+    renderAlerts(alerts);
+
+
+    Plotly.react("chartTimeline", [
+      { x: range.months, y: totals.rec, type: "scatter", mode: "lines+markers", name: "Receitas" },
+      { x: range.months, y: totals.desp, type: "scatter", mode: "lines+markers", name: "Despesas" }
+    ], {
+      margin: {l: 50, r: 10, t: 10, b: 40},
+      legend: {orientation: "h"},
+      yaxis: {tickprefix: "R$ ", hoverformat: ",.2f"},
+      hovermode: "x unified"
+    }, {displaylogo:false});
+
+    Plotly.react("chartDonut", [{
+      values: [totalRec, totalDesp],
+      labels: ["Receitas", "Despesas"],
+      type: "pie",
+      hole: 0.62,
+      textinfo: "label+percent"
+    }], {
+      margin: {l: 10, r: 10, t: 10, b: 10},
+      showlegend: false
+    }, {displaylogo:false});
+
+    const top10 = byConta.slice(0,10).reverse();
+    Plotly.react("chartTop10", [{
+      x: top10.map(d => d.total),
+      y: top10.map(d => d.desc),
+      type: "bar",
+      orientation: "h",
+      name: "Total no período"
+    }], {
+      margin: {l: 170, r: 10, t: 10, b: 40},
+      xaxis: {tickprefix: "R$ ", hoverformat: ",.2f"}
+    }, {displaylogo:false});
+
+    const heat = buildHeatmap(rows, range.months);
+    Plotly.react("chartHeat", [{
+      z: heat.z,
+      x: heat.x,
+      y: heat.y,
+      type: "heatmap",
+      hoverongaps: false
+    }], {
+      margin: {l: 80, r: 10, t: 10, b: 40}
+    }, {displaylogo:false});
+
+    Plotly.react("chartResultado", [{
+      x: range.months,
+      y: totals.res,
+      type: "bar",
+      name: "Resultado"
+    }], {
+      margin: {l: 50, r: 10, t: 10, b: 40},
+      yaxis: {tickprefix: "R$ ", hoverformat: ",.2f"}
+    }, {displaylogo:false});
+
+    const contaFocus = (state.conta !== "Todas") ? state.conta : (top.desc !== "—" ? top.desc : null);
+    const contaRow = contaFocus ? rows.filter(r => (r["Descricao"] || "").trim() === contaFocus) : [];
+    const contaSerie = range.months.map(m => contaRow.reduce((acc, r) => acc + parseBR(r[m]), 0));
+
+    Plotly.react("chartContaSerie", [{
+      x: range.months,
+      y: contaSerie,
+      type: "scatter",
+      mode: "lines+markers",
+      name: contaFocus ? contaFocus : "Conta"
+    }], {
+      margin: {l: 50, r: 10, t: 10, b: 40},
+      yaxis: {tickprefix: "R$ ", hoverformat: ",.2f"},
+      hovermode: "x unified"
+    }, {displaylogo:false});
+
+    Plotly.react("chartStack", [
+      { x: ["Total no período"], y: [totalRec], type: "bar", name: "Receitas" },
+      { x: ["Total no período"], y: [totalDesp], type: "bar", name: "Despesas" }
+    ], {
+      barmode: "stack",
+      margin: {l: 50, r: 10, t: 10, b: 40},
+      yaxis: {tickprefix: "R$ ", hoverformat: ",.2f"},
+      legend: {orientation: "h"}
+    }, {displaylogo:false});
+
+    const top25 = byConta.slice(0,25);
+    Plotly.react("chartRankFull", [{
+      x: top25.map(d => d.desc),
+      y: top25.map(d => d.total),
+      type: "bar",
+      name: "Total"
+    }], {
+      margin: {l: 50, r: 10, t: 10, b: 140},
+      xaxis: {tickangle: -45},
+      yaxis: {tickprefix: "R$ ", hoverformat: ",.2f"}
+    }, {displaylogo:false});
+
+    const tableRows = rows.map(r => {
+      const out = {};
+      out["Tipo"] = (r["Tipo"] || "").trim();
+      out["Codigo"] = (r["Codigo"] || "").toString().trim();
+      out["Descricao"] = (r["Descricao"] || "").trim();
+      range.months.forEach(m => { out[m] = r[m]; });
+      out["Total (período)"] = fmtBRL(valueInRange(r, range.months));
+      return out;
+    });
+
+    const columns = [
+      {title:"Tipo", field:"Tipo", headerFilter:"list", headerFilterParams:{valuesLookup:true, clearable:true}},
+      {title:"Código", field:"Codigo", headerFilter:"input"},
+      {title:"Descrição", field:"Descricao", headerFilter:"input"},
+      ...range.months.map(m => ({title:m, field:m, hozAlign:"right"})),
+      {title:"Total (período)", field:"Total (período)", hozAlign:"right"}
+    ];
+
+    if (!table) {
+      table = new Tabulator("#table", {
+        data: tableRows,
+        layout: "fitDataStretch",
+        height: 520,
+        pagination: true,
+        paginationSize: 15,
+        columns
+      });
+    } else {
+      table.setColumns(columns);
+      table.replaceData(tableRows);
+    }
+
+    document.getElementById("footerInfo").textContent =
+      `Linhas exibidas: ${tableRows.length} • Meses: ${range.months.join(", ")}`;
+  }
+
+  document.getElementById("btnAplicar").addEventListener("click", () => {
+    state.tipo = tipoSel.value;
+    state.conta = contaSel.value;
+    state.mesIni = Number(mesIni.value);
+    state.mesFim = Number(mesFim.value);
+    state.search = globalSearch.value.trim();
+    renderAll();
+  });
+
+  document.getElementById("btnLimpar").addEventListener("click", () => {
+    tipoSel.value = "Todos";
+    contaSel.value = "Todas";
+    mesIni.value = "0";
+    mesFim.value = "11";
+    globalSearch.value = "";
+
+    state.tipo = "Todos";
+    state.conta = "Todas";
+    state.mesIni = 0;
+    state.mesFim = 11;
+    state.search = "";
+    renderAll();
+  });
+
+  globalSearch.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("btnAplicar").click();
+  });
+
+  document.getElementById("btnExport").addEventListener("click", () => {
+    if (!table) return;
+    table.download("csv", "dashboard_filtrado_2025.csv", {delimiter:";"});
+  });
+
+  document.querySelectorAll(".nav button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const view = btn.getAttribute("data-view");
+      document.getElementById("view-visao").classList.toggle("hidden", view !== "visao");
+      document.getElementById("view-analise").classList.toggle("hidden", view !== "analise");
+      document.getElementById("view-tabela").classList.toggle("hidden", view !== "tabela");
+
+      setTimeout(() => {
+        ["chartTimeline","chartDonut","chartTop10","chartHeat","chartResultado","chartContaSerie","chartStack","chartRankFull"]
+          .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) Plotly.Plots.resize(el);
+          });
+      }, 200);
+    });
+  });
+
+  renderAll();
+</script>
+</body>
+</html>
